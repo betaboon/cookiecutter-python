@@ -1,0 +1,41 @@
+name: Test
+
+on:
+  workflow_call:
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+        python-version:
+{%- for ver in range(8, 12)%}
+  {%- set _, min = cookiecutter.python_version_min.split(".") %}
+  {%- set _, max = cookiecutter.python_version_max.split(".") %}
+  {%- if ver|int >= min|int and ver|int <= max|int %}
+          - "3.{{ ver }}"
+  {%- endif %}
+{%- endfor %}
+    runs-on: {{ "${{ matrix.os }}" }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up PDM
+        uses: pdm-project/setup-pdm@v3
+        with:
+          cache: true
+          python-version: {{ "${{ matrix.python-version }}" }}
+      - name: Install dependencies
+        run: pdm sync -G :all
+      - name: Run tests
+        run: pdm test
+
+  passed:
+    needs:
+      - test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check test status
+        if: {{ "${{ needs.test.result != 'success' }}" }}
+        run: exit 1
